@@ -1161,7 +1161,7 @@ if (vd < 2.6) {
 
   if (nearest.type === 'tree') {
     const t = nearest.data;
-    if (t.shaken) { toast('もう何もない…'); return; }
+    if (t.shaken) { toast('雪が落ちてきた、気持ちいね'); return; }
 
     // one-time shake now consumes the tree
     t.shaken = true;
