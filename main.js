@@ -820,7 +820,7 @@ function updateWasp(dt){
   if (d < 0.75) {
     toast('😵 刺された！ゲームオーバー…', 1.2);
     fade(true);
-    setTimeout(()=>resetGame(), 900);
+    setTimeout(()=>resetGame(), 1200);
   }
 }
 
@@ -1014,12 +1014,17 @@ for (const t of (state.world.dfTrees || [])) {
 }
 
 buildOutdoor();
+const bigMsgEl = document.getElementById('bigMsg');
+function showBigMsg(text){
+  bigMsgEl.textContent = text;
+  bigMsgEl.classList.add('show');
+}
 
 // Interaction text
 function gameOver(msg){
   toast(msg, 1.2);
   fade(true);
-  setTimeout(()=>resetGame(), 900);
+  setTimeout(()=>resetGame(), 1200);
 }
 
 function npcTalk(npc){
@@ -1081,8 +1086,12 @@ function npcTalk(npc){
     if (invGet('dragonfruit') >= 3){
       return gameOver('キャットマンにドラゴンフルーツを渡した…ゲームオーバー！');
     }
-
+    
     // それ以外の会話
+    // それ以外の会話（進行度で分岐）
+    if (state.quest.step < 3) {
+      return toast('キャットマン「ドラゴンフルーツを３つもってこいっ」');
+    }
     return toast('キャットマン「…3つの秩序（🃏創🃏維🃏破）を揃えろ」');
   }
 
@@ -1106,7 +1115,7 @@ function doAction(){
         switchToOutdoor();
       }, 220);
     } else {
-      toast('ここでA: そとへ', 1.0);
+      toast('空虚な部屋だまるで誰かのみたい', 1.0);
     }
     return;
   }
@@ -1124,7 +1133,13 @@ if (vd < 2.6) {
   }
   toast('💘 Valentino Island の中心へ…（クリア！）', 2.0);
   fade(true);
-  setTimeout(()=>resetGame(), 1200); // クリア後にリセットするなら
+  showBigMsg("HAPPY VALENTINE'S DAY");
+
+  setTimeout(()=>{
+  // YouTubeへ遷移
+  window.location.href = "https://www.youtube.com/watch?v=trU-S53fK04&list=RDtrU-S53fK04&start_radio=1";
+  }, 5000);
+  
   return;
 }
 
@@ -1158,7 +1173,13 @@ if (vd < 2.6) {
     }, 220);
     return;
   }
-
+  function fruitNameJa(kind){
+  if (kind === 'peach') return '桃';
+  if (kind === 'apple') return 'リンゴ';
+  if (kind === 'orange') return 'オレンジ';
+  if (kind === 'dragonfruit') return 'ドラゴンフルーツ';
+  return kind;
+  }
   if (nearest.type === 'tree') {
     const t = nearest.data;
     if (t.shaken) { toast('雪が落ちてきた、気持ちいね'); return; }
@@ -1176,12 +1197,13 @@ if (vd < 2.6) {
       if (ud.cl1) ud.cl1.visible = false;
       if (ud.cl2) ud.cl2.visible = false;
       spawnSnowBurst(nearest.x, 2.2, nearest.z, 26);
+      toast('雪が落ちてきた気持ちいね', 1.6);
     }
-
+    
     // fruit or coconut (instant KO) or nothing/wasps
     if (t.fruit) {
       spawnPickup(t.fruit, t.x + (Math.random()*0.9 - 0.45), t.z + 1.2);
-      toast(`木をゆすった！ ${t.fruit==='peach'?'桃':t.fruit==='apple'?'リンゴ':'オレンジ'}が落ちた！`);
+      toast(`木をゆすった！ ${fruitNameJa(t.fruit)}が落ちた！`);
     } else if (t.coconut) {
       // immediate game over: "coconut fell" and got hit
       toast('ココナッツが落ちてた', 1.2);
