@@ -75,9 +75,7 @@ function flushSave(){ writeSave(inv, state.world); }
 function updateInvUI(){
   invEl.textContent =
     `🍑:${invGet('peach')}  🍎:${invGet('apple')}  🍊:${invGet('orange')}  ` +
-    `🐉:${invGet('dragonfruit')}  ` +
-    `🃏創:${invGet('tarot_brahma')}  🃏維:${invGet('tarot_vishnu')}  🃏破:${invGet('tarot_shiva')}  ` +
-    `🖤魂:${invGet('cat_soul_card')}`;
+    `🐉:${invGet('dragonfruit')} `;
 }
 updateInvUI();
 
@@ -1033,9 +1031,12 @@ function npcTalk(npc){
 
   // 役割に応じて処理
   if (npc.role === 'uplifted'){
-    // 1番目：りんご3 → Brahma（順番厳守）
-    if (state.quest.step !== 0) return gameOver('順番を間違えた！ゲームオーバー…');
+    // Brahma（りんご3）
     if (invGet('apple') < 3) return toast('高揚した猫「りんごを3つ…」');
+
+    // ★「渡して受け取る」瞬間だけ順番チェック
+    if (state.quest.step !== 0) return gameOver('タロットの順番を間違えた！ゲームオーバー…');
+
     invAdd('apple', -3);
     invAdd('tarot_brahma', 1);
     state.quest.step = 1;
@@ -1044,9 +1045,12 @@ function npcTalk(npc){
   }
 
   if (npc.role === 'wavering'){
-    // 2番目：オレンジ3 → Vishnu
-    if (state.quest.step !== 1) return gameOver('順番を間違えた！ゲームオーバー…');
+    // Vishnu（オレンジ3）
     if (invGet('orange') < 3) return toast('揺らいだ猫「オレンジを3つ…」');
+
+    // ★ここ
+    if (state.quest.step !== 1) return gameOver('タロットの順番を間違えた！ゲームオーバー…');
+
     invAdd('orange', -3);
     invAdd('tarot_vishnu', 1);
     state.quest.step = 2;
@@ -1055,9 +1059,12 @@ function npcTalk(npc){
   }
 
   if (npc.role === 'distant'){
-    // 3番目：もも3 → Shiva
-    if (state.quest.step !== 2) return gameOver('順番を間違えた！ゲームオーバー…');
+    // Shiva（もも3）
     if (invGet('peach') < 3) return toast('遠くを見ている猫「ももを3つ…」');
+
+    // ★ここ
+    if (state.quest.step !== 2) return gameOver('タロットの順番を間違えた！ゲームオーバー…');
+
     invAdd('peach', -3);
     invAdd('tarot_shiva', 1);
     state.quest.step = 3;
@@ -1066,7 +1073,6 @@ function npcTalk(npc){
   }
 
   if (npc.role === 'catman'){
-    // まず “正解ルート（タロット3枚）” を優先
     const hasAllTarot =
       invGet('tarot_brahma') >= 1 &&
       invGet('tarot_vishnu') >= 1 &&
@@ -1082,20 +1088,17 @@ function npcTalk(npc){
       return toast('キャットマン「猫の魂のカード（🖤魂）…受け取れ」');
     }
 
-    // NGルート：ドラゴンフルーツ3つ渡したらゲームオーバー
+    // NGルート：ドラゴンフルーツ3つ渡したらゲームオーバー（今のまま）
     if (invGet('dragonfruit') >= 3){
       return gameOver('キャットマンにドラゴンフルーツを渡した…ゲームオーバー！');
     }
-    
-    // それ以外の会話
-    // それ以外の会話（進行度で分岐）
+
     if (state.quest.step < 3) {
       return toast('キャットマン「ドラゴンフルーツを３つもってこいっ」');
     }
     return toast('キャットマン「…3つの秩序（🃏創🃏維🃏破）を揃えろ」');
   }
 
-  // role無しのデフォルト
   toast(`${npc.name}「……」`);
 }
 
@@ -1131,7 +1134,7 @@ if (vd < 2.6) {
     toast('🖤 猫の魂のカードがないと入れない…');
     return;
   }
-  toast('💘 Valentino Island の中心へ…（クリア！）', 2.0);
+  toast('💘 HAPPY VALENTINs DAY', 2.0);
   fade(true);
   showBigMsg("HAPPY VALENTINE'S DAY");
 
