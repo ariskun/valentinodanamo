@@ -73,9 +73,14 @@ function invSet(k,v){ inv[k]=v; flushSave(); updateInvUI(); }
 function invAdd(k,n){ inv[k]=(inv[k]||0)+n; flushSave(); updateInvUI(); }
 function flushSave(){ writeSave(inv, state.world); }
 function updateInvUI(){
-  invEl.textContent = `🍑:${invGet('peach')}  🍎:${invGet('apple')}  🍊:${invGet('orange')}  🎫:${invGet('leaf_ticket')}`;
+  invEl.textContent =
+    `🍑:${invGet('peach')}  🍎:${invGet('apple')}  🍊:${invGet('orange')}  ` +
+    `🐉:${invGet('dragonfruit')}  ` +
+    `🃏創:${invGet('tarot_brahma')}  🃏維:${invGet('tarot_vishnu')}  🃏破:${invGet('tarot_shiva')}  ` +
+    `🖤魂:${invGet('cat_soul_card')}`;
 }
 updateInvUI();
+
 
 // three.js
 const wrap = document.getElementById('wrap');
@@ -277,7 +282,9 @@ const state = {
   stage: 'outdoor',
   world: world || null,
   wasp: { active:false, obj:null, speed:7.2, treeId:null, t:0 },
-  started: false,            // ★追加：ゲーム開始フラグ
+  started: false, // ★追加：ゲーム開始フラグ
+  // 0: まだ / 1: Brahma済 / 2: Vishnu済 / 3: Shiva済 / 4: 猫の魂カード取得済
+  quest: { step: 0 },
 };
 
 
@@ -613,7 +620,7 @@ function pickWanderTarget(avoidX, avoidZ){
   return { x: 0, z: 0 };
 }
 
-function addCatNPC(name, x, z, palette){
+function addCatNPC(name, x, z, palette, role){
   const group = makeCat(palette);
   group.position.set(x, 0, z);
   outdoorGroup.add(group);
@@ -621,6 +628,7 @@ function addCatNPC(name, x, z, palette){
   const npc = {
     type: 'npc',
     name,
+    role,
     obj: group,
     x, z,
     r: 0.90,
@@ -659,6 +667,19 @@ function spawnPickup(kind, x, z){
     leaf.scale.set(1.3, 0.45, 1.0);
     leaf.position.set(-0.12, 0.76, 0.04);
     group.add(sh, mesh, leaf);
+    } else if (kind === 'dragonfruit') {
+  mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.30, 16, 12),
+    new THREE.MeshStandardMaterial({ color: 0xb44bff, roughness: 0.78 })
+  );
+  mesh.position.y = 0.50;
+  const leaf = new THREE.Mesh(
+    new THREE.ConeGeometry(0.16, 0.28, 12),
+    new THREE.MeshStandardMaterial({ color: 0x2fe27a, roughness: 0.9 })
+  );
+  leaf.position.set(0.0, 0.78, 0.0);
+  group.add(sh, mesh, leaf);
+
   } else {
     mesh = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.46, 0.46), new THREE.MeshStandardMaterial({ color: 0xfff1a8, roughness: 0.88 }));
     mesh.position.y = 0.56;
@@ -741,7 +762,7 @@ function startWaspChase(treeId, x, z){
   state.wasp.originX = x;
   state.wasp.originZ = z;
 
-  toast('🐝 蜂の巣だ…！(1秒後に追ってくる) 家に逃げろ！', 2.4);
+  toast('🐝', 2.4);
 }
 
 function stopWaspChase(){
@@ -823,7 +844,12 @@ function initWorld(){
 
   const TREE_COUNT = 44;
   const ROCK_COUNT = 12;
-
+  const dfTrees = [];
+  const DF_TREE_COUNT = 4;
+  for (let i=0;i<DF_TREE_COUNT;i++){
+    const p = randomLandPoint(2.6, rnd);
+    dfTrees.push({ id:`df${i}`, x:p.x, z:p.z, fruit:'dragonfruit', shaken:false, hadWasp:false, coconut:false });
+  }
   for (let i=0;i<TREE_COUNT;i++) {
     const p = randomLandPoint(2.6, rnd);
     trees.push({ id: `t${i}`, x:p.x, z:p.z, fruit:null, coconut:false, shaken:false, hadWasp:false });
@@ -846,13 +872,19 @@ function initWorld(){
     if (rnd() < 0.05) t.coconut = true;
   }
 
-  state.world = { trees, rocks };
+  state.world = { trees, rocks , dfTrees};
   flushSave();
 }
 
 // Build meshes from world
 function buildOutdoor(){
   initWorld();
+// Valentine Gate near center
+const vGate = makeValentineGate();
+vGate.position.set(0, 0, -6.0);
+outdoorGroup.add(vGate);
+state.valentine = { type:'valentine', obj:vGate, x:0, z:-6.0, r:2.2 };
+interactables.push(state.valentine);
 
   // House at center
   const houseMesh = makeHouseMesh();
@@ -860,6 +892,34 @@ function buildOutdoor(){
   outdoorGroup.add(houseMesh);
   state.house = { type:'house', obj:houseMesh, x:0, z:0, r:2.0 };
   interactables.push(state.house);
+  function makeValentineGate(){
+  const g = new THREE.Group();
+  g.add(shadowBlob(1.8, 0.14));
+
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.4, 1.6, 0.35, 24),
+    new THREE.MeshStandardMaterial({ color: 0xffc0d9, roughness: 0.9 })
+  );
+  base.position.y = 0.18;
+
+  // ハート
+  const heart = new THREE.Mesh(
+    new THREE.SphereGeometry(0.9, 22, 18),
+    new THREE.MeshStandardMaterial({ color: 0xff3b75, roughness: 0.65, metalness: 0.05 })
+  );
+  heart.scale.set(1.1, 0.9, 0.7);
+  heart.position.y = 1.25;
+
+  // 小さな光
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.65, 18, 14),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, transparent:true, opacity:0.18 })
+  );
+  glow.position.y = 1.25;
+
+  g.add(base, heart, glow);
+  return g;
+}
 
   // Cat house near the main house
   const catHouse = new THREE.Group();
@@ -914,6 +974,25 @@ function buildOutdoor(){
       cooldown: 0,
     });
   }
+  // Dragonfruit Trees (4)
+for (const t of (state.world.dfTrees || [])) {
+  const mesh = makeSnowyTreeMesh();
+  mesh.position.set(t.x, 0, t.z);
+  outdoorGroup.add(mesh);
+  t.obj = mesh;
+
+  interactables.push({
+    type:'tree',
+    id: t.id,
+    data: t,
+    obj: mesh,
+    x: t.x,
+    z: t.z,
+    r: 1.08,
+    sway: 0,
+    cooldown: 0,
+  });
+}
 
   // Rocks (still there visually)
   for (const r of state.world.rocks) {
@@ -924,10 +1003,11 @@ function buildOutdoor(){
   }
 
   // NPCs
-  addCatNPC('タマ',  -3.0,  2.0,  { fur: 0xffd2e1, ear: 0xffd2e1, nose: 0xff7aa2, stripe: 0xffffff });
-  addCatNPC('ミケ',   9.0, -10.0, { fur: 0xffe8b6, ear: 0xffe8b6, nose: 0xffa0a0, stripe: 0xffffff });
-  addCatNPC('シロ', -15.0,  10.0, { fur: 0xffffff, ear: 0xffffff, nose: 0xffa0a0, stripe: 0xffffff });
-  addCatNPC('クロ',  18.0,  9.0,  { fur: 0x3b3b3b, ear: 0x3b3b3b, nose: 0xff7aa2, stripe: 0xffffff });
+  addCatNPC('高揚した猫', -3.0,  2.0,  { fur: 0xffd2e1, ear: 0xffd2e1, nose: 0xff7aa2, stripe: 0xffffff }, 'uplifted');
+  addCatNPC('揺らいだ猫',  9.0, -10.0, { fur: 0xffe8b6, ear: 0xffe8b6, nose: 0xffa0a0, stripe: 0xffffff }, 'wavering');
+  addCatNPC('遠くを見ている猫', -15.0, 10.0, { fur: 0xffffff, ear: 0xffffff, nose: 0xffa0a0, stripe: 0xffffff }, 'distant');
+  addCatNPC('キャットマン', 18.0,  9.0,  { fur: 0x1d1d1d, ear: 0x1d1d1d, nose: 0xff7aa2, stripe: 0xffffff }, 'catman');
+
 
   // Player start
   player.position.set(0, 0, 10);
@@ -936,11 +1016,80 @@ function buildOutdoor(){
 buildOutdoor();
 
 // Interaction text
+function gameOver(msg){
+  toast(msg, 1.2);
+  fade(true);
+  setTimeout(()=>resetGame(), 900);
+}
+
 function npcTalk(npc){
   npc.freeze = 2.8;
   npc.wait = 0;
-  toast(`${npc.name}「木は1回だけだにゃ。蜂が出たら家へ！」`);
+
+  // 役割に応じて処理
+  if (npc.role === 'uplifted'){
+    // 1番目：りんご3 → Brahma（順番厳守）
+    if (state.quest.step !== 0) return gameOver('順番を間違えた！ゲームオーバー…');
+    if (invGet('apple') < 3) return toast('高揚した猫「りんごを3つ…」');
+    invAdd('apple', -3);
+    invAdd('tarot_brahma', 1);
+    state.quest.step = 1;
+    flushSave();
+    return toast('高揚した猫「ブラフマーの創造（🃏創）を授ける」');
+  }
+
+  if (npc.role === 'wavering'){
+    // 2番目：オレンジ3 → Vishnu
+    if (state.quest.step !== 1) return gameOver('順番を間違えた！ゲームオーバー…');
+    if (invGet('orange') < 3) return toast('揺らいだ猫「オレンジを3つ…」');
+    invAdd('orange', -3);
+    invAdd('tarot_vishnu', 1);
+    state.quest.step = 2;
+    flushSave();
+    return toast('揺らいだ猫「ヴィシュナの維持（🃏維）を授ける」');
+  }
+
+  if (npc.role === 'distant'){
+    // 3番目：もも3 → Shiva
+    if (state.quest.step !== 2) return gameOver('順番を間違えた！ゲームオーバー…');
+    if (invGet('peach') < 3) return toast('遠くを見ている猫「ももを3つ…」');
+    invAdd('peach', -3);
+    invAdd('tarot_shiva', 1);
+    state.quest.step = 3;
+    flushSave();
+    return toast('遠くを見ている猫「シヴァの破壊（🃏破）を授ける」');
+  }
+
+  if (npc.role === 'catman'){
+    // まず “正解ルート（タロット3枚）” を優先
+    const hasAllTarot =
+      invGet('tarot_brahma') >= 1 &&
+      invGet('tarot_vishnu') >= 1 &&
+      invGet('tarot_shiva') >= 1;
+
+    if (hasAllTarot && state.quest.step === 3 && invGet('cat_soul_card') < 1){
+      invAdd('tarot_brahma', -1);
+      invAdd('tarot_vishnu', -1);
+      invAdd('tarot_shiva', -1);
+      invAdd('cat_soul_card', 1);
+      state.quest.step = 4;
+      flushSave();
+      return toast('キャットマン「猫の魂のカード（🖤魂）…受け取れ」');
+    }
+
+    // NGルート：ドラゴンフルーツ3つ渡したらゲームオーバー
+    if (invGet('dragonfruit') >= 3){
+      return gameOver('キャットマンにドラゴンフルーツを渡した…ゲームオーバー！');
+    }
+
+    // それ以外の会話
+    return toast('キャットマン「…3つの秩序（🃏創🃏維🃏破）を揃えろ」');
+  }
+
+  // role無しのデフォルト
+  toast(`${npc.name}「……」`);
 }
+
 
 // Action logic
 function doAction(){
@@ -966,6 +1115,18 @@ function doAction(){
 
   const px = player.position.x;
   const pz = player.position.z;
+  // Valentine gate entry (requires cat_soul_card)
+const vd = Math.sqrt(dist2(px, pz, state.valentine.x, state.valentine.z));
+if (vd < 2.6) {
+  if (invGet('cat_soul_card') < 1) {
+    toast('🖤 猫の魂のカードがないと入れない…');
+    return;
+  }
+  toast('💘 Valentino Island の中心へ…（クリア！）', 2.0);
+  fade(true);
+  setTimeout(()=>resetGame(), 1200); // クリア後にリセットするなら
+  return;
+}
 
   // Prefer house entry if close enough (even in normal times)
   const hd = Math.sqrt(dist2(px, pz, 0, 0));
@@ -1390,4 +1551,4 @@ startBtnEl?.addEventListener('click', () => {
   setStarted(true);
 });
 
-toast('雪の島へようこそ！木は1回だけ。蜂が出たら家(真ん中)へ！', 3.2)
+toast('harasho danamo', 3.2)
