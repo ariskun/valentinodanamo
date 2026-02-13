@@ -800,7 +800,7 @@ function updateWasp(dt){
 
   const px = player.position.x;
   const pz = player.position.z;
-
+  
   // move toward player
   const dx = px - bee.position.x;
   const dz = pz - bee.position.z;
@@ -890,6 +890,22 @@ interactables.push(state.valentine);
   outdoorGroup.add(houseMesh);
   state.house = { type:'house', obj:houseMesh, x:0, z:0, r:2.0 };
   interactables.push(state.house);
+  // Valentine gate near center
+  const vGate = makeValentineGate();
+  vGate.position.set(0, 0, -6.0);
+  outdoorGroup.add(vGate);
+  state.valentine = { type:'valentine', obj:vGate, x:0, z:-6.0, r:2.2 };
+  interactables.push(state.valentine);
+  function makeValentineGate(){
+  const g = new THREE.Group();
+  g.add(shadowBlob(1.8, 0.14));
+
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.4, 1.6, 0.35, 24),
+    new THREE.MeshStandardMaterial({ color: 0xffc0d9, roughness: 0.9 })
+  );
+  base.position.y = 0.18;
+  // 追加項目forvalentinesgate
   function makeValentineGate(){
   const g = new THREE.Group();
   g.add(shadowBlob(1.8, 0.14));
@@ -900,6 +916,22 @@ interactables.push(state.valentine);
   );
   base.position.y = 0.18;
 
+  const heart = new THREE.Mesh(
+    new THREE.SphereGeometry(0.9, 22, 18),
+    new THREE.MeshStandardMaterial({ color: 0xff3b75, roughness: 0.65, metalness: 0.05 })
+  );
+  heart.scale.set(1.1, 0.9, 0.7);
+  heart.position.y = 1.25;
+
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.65, 18, 14),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, transparent:true, opacity:0.18 })
+  );
+  glow.position.y = 1.25;
+
+  g.add(base, heart, glow);
+  return g;
+}
   // ハート
   const heart = new THREE.Mesh(
     new THREE.SphereGeometry(0.9, 22, 18),
