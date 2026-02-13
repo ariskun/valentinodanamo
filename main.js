@@ -1381,10 +1381,10 @@ function resolveToLand(x,z,oldX,oldZ){
   if (hd < 2.35) return {x:oldX, z:oldZ};
   // collision with trees/rocks (not NPC)
   for (const o of interactables) {
-    if (o.type === 'npc' || o.type === 'house') continue;
+    if (o.type === 'npc' || o.type === 'house' || o.type === 'valentine') continue; // ★追加
     const d = Math.sqrt(dist2(x,z, o.x,o.z));
     if (d < (o.r + 0.70)) return {x:oldX, z:oldZ};
-  }
+}
   return {x,z};
 }
 
