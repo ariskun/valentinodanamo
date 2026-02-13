@@ -51,6 +51,18 @@ const fadeEl = document.getElementById('fade');
 let toastTimer = 0;
 function toast(msg, sec=2.2){ toastEl.textContent = msg; toastEl.classList.add('show'); toastTimer = sec; }
 function fade(on){ fadeEl.classList.toggle('on', !!on); }
+const startScreenEl = document.getElementById('startScreen');
+const startBtnEl = document.getElementById('startBtn');
+
+function setStarted(v){
+  state.started = !!v;
+  if (state.started){
+    startScreenEl?.classList.add('hidden');
+    toast('Поехали!', 1.2); // “行こう！”的（いらなければ消してOK）
+  }else{
+    startScreenEl?.classList.remove('hidden');
+  }
+}
 
 const save = loadSave();
 const inv = save.inv;
@@ -265,7 +277,9 @@ const state = {
   stage: 'outdoor',
   world: world || null,
   wasp: { active:false, obj:null, speed:7.2, treeId:null, t:0 },
+  started: false,            // ★追加：ゲーム開始フラグ
 };
+
 
 function randomLandPoint(margin=2.0, rnd=Math.random){
   for (let i=0;i<220;i++) {
@@ -932,6 +946,7 @@ function npcTalk(npc){
 function doAction(){
   if (state.stage === 'indoor') {
     // exit door
+    if (!state.started) return;
     const dx = player.position.x - state.indoorDoor.x;
     const dz = player.position.z - state.indoorDoor.z;
     if (Math.hypot(dx,dz) < 1.6) {
@@ -1210,6 +1225,7 @@ function updateTreeSway(dt){
 }
 
 function updatePlayer(dt){
+  if (!state.started) return;
   let vx = joy.dx;
   let vz = joy.dy;
   const len = Math.hypot(vx, vz);
@@ -1365,5 +1381,13 @@ function loop(){
   requestAnimationFrame(loop);
 }
 loop();
+setStarted(false);
+startBtnEl?.addEventListener('click', () => {
+  // 開始時は家の前に必ず置く（後述のスポーン固定と二重で安全）
+  player.position.set(0, 0, 3.6);
+  player.rotation.y = Math.PI;
+
+  setStarted(true);
+});
 
 toast('雪の島へようこそ！木は1回だけ。蜂が出たら家(真ん中)へ！', 3.2)
