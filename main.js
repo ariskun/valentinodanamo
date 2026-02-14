@@ -877,12 +877,6 @@ function initWorld(){
 // Build meshes from world
 function buildOutdoor(){
   initWorld();
-// Valentine Gate near center
-const vGate = makeValentineGate();
-vGate.position.set(0, 0, -6.0);
-outdoorGroup.add(vGate);
-state.valentine = { type:'valentine', obj:vGate, x:0, z:-6.0, r:2.2 };
-interactables.push(state.valentine);
 
   // House at center
   const houseMesh = makeHouseMesh();
@@ -895,7 +889,6 @@ interactables.push(state.valentine);
   vGate.position.set(0, 0, -6.0);
   outdoorGroup.add(vGate);
   state.valentine = { type:'valentine', obj:vGate, x:0, z:-6.0, r:2.2 };
-  interactables.push(state.valentine);
   function makeValentineGate(){
   const g = new THREE.Group();
   g.add(shadowBlob(1.8, 0.14));
@@ -1056,6 +1049,12 @@ function gameOver(msg){
   fade(true);
   setTimeout(()=>resetGame(), 1200);
 }
+// Valentine Gate near center
+const vGate = makeValentineGate();
+vGate.position.set(0, 0, -6.0);
+outdoorGroup.add(vGate);
+state.valentine = { type:'valentine', obj:vGate, x:0, z:-6.0, r:2.2 };
+interactables.push(state.valentine);
 
 function npcTalk(npc){
   npc.freeze = 2.8;
@@ -1598,8 +1597,9 @@ function loop(){
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
-loop();
 setStarted(false);
+loop();
+
 startBtnEl?.addEventListener('click', () => {
   // 開始時は家の前に必ず置く（後述のスポーン固定と二重で安全）
   player.position.set(0, 0, 3.6);
