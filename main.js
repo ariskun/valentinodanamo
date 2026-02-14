@@ -79,7 +79,57 @@ function updateInvUI(){
 }
 updateInvUI();
 
+// ---- GameOver Overlay (no infinite reload) ----
+let GAMEOVER_LOCK = false;
 
+const goEl = document.createElement('div');
+goEl.id = 'gameOverScreen';
+goEl.innerHTML = `
+  <div class="panel">
+    <div class="title">GAME OVER</div>
+    <div class="msg" id="goMsg"></div>
+    <div class="btnRow">
+      <button id="goRetry" class="btn">Try next time</button>
+      <button id="goToilet" class="btn ghost">トイレタイム</button>
+    </div>
+  </div>
+`;
+document.body.appendChild(goEl);
+
+const goMsgEl = goEl.querySelector('#goMsg');
+const goRetryEl = goEl.querySelector('#goRetry');
+const goToiletEl = goEl.querySelector('#goToilet');
+
+// 画面を止める（移動・蜂・操作・開始状態など）
+function triggerGameOver(message){
+  if (GAMEOVER_LOCK) return;         // ★無限発火防止
+  GAMEOVER_LOCK = true;
+
+  // gameplay stop
+  state.started = false;
+  stopWaspChase();
+
+  fade(true);
+  if (goMsgEl) goMsgEl.textContent = message || 'Try next time';
+
+  goEl.classList.add('show');
+}
+
+function hardRestart(){
+  // ローカルセーブ削除（v5 + 旧版）
+  try{ localStorage.removeItem(SAVE_KEY); }catch{}
+  try{ localStorage.removeItem("cozy_island_3d_save_v4"); }catch{}
+  // ここで初めてリロード（1回だけ）
+  location.replace(location.href.split('#')[0]);
+}
+
+// ボタン動作
+goRetryEl?.addEventListener('click', hardRestart);
+
+// トイレタイム：ただの休憩画面として一時停止（好きにカスタムしてOK）
+goToiletEl?.addEventListener('click', ()=>{
+  toast('🚽 トイレタイム…（戻ったら Try next time）', 2.0);
+});
 // three.js
 const wrap = document.getElementById('wrap');
 const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false, powerPreference:'high-performance' });
@@ -841,9 +891,7 @@ function updateWasp(dt){
 
   // sting
   if (d < 0.75) {
-    toast('😵 刺された！ゲームオーバー…', 1.2);
-    fade(true);
-    setTimeout(()=>resetGame(), 1200);
+    triggerGameOver('😵 刺された！\nTry next time');
   }
 }
 
@@ -1017,9 +1065,7 @@ function showBigMsg(text){
 
 // Interaction text
 function gameOver(msg){
-  toast(msg, 1.2);
-  fade(true);
-  setTimeout(()=>resetGame(), 1200);
+  triggerGameOver(msg || 'Try next time');
 }
 
 function npcTalk(npc){
@@ -1206,9 +1252,7 @@ if (vd < 2.6) {
       toast(`木をゆすった！ ${fruitNameJa(t.fruit)}が落ちた！`);
     } else if (t.coconut) {
       // immediate game over: "coconut fell" and got hit
-      toast('ココナッツが落ちてた', 1.2);
-      fade(true);
-      setTimeout(()=>resetGame(), 900);
+      triggerGameOver('🥥 ココナッツ直撃…\nTry next time');
     } else {
       if (!t.hadWasp && Math.random() < 0.20) {
         t.hadWasp = true; // this tree will never trigger again
