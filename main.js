@@ -391,6 +391,27 @@ function randomNonSandLandPoint(margin=2.0, rnd=Math.random){
   }
   return {x:0,z:0};
 }
+// ---- Spacing helper (avoid overlap) ----
+function placeSpacedPoints(count, sampler, minDist, maxTries = 20000){
+  const pts = [];
+  const minD2 = minDist * minDist;
+  let tries = 0;
+
+  while (pts.length < count && tries < maxTries){
+    tries++;
+    const p = sampler();
+    let ok = true;
+    for (const q of pts){
+      if (dist2(p.x, p.z, q.x, q.z) < minD2){ ok = false; break; }
+    }
+    if (ok) pts.push(p);
+  }
+
+  if (pts.length < count){
+    console.warn(`placeSpacedPoints: only ${pts.length}/${count} (minDist=${minDist})`);
+  }
+  return pts;
+}
 // Tree mesh
 function makeSnowyTreeMesh(){
   const group = new THREE.Group();
@@ -1002,8 +1023,34 @@ function shuffle(arr, rnd=Math.random){
   return arr;
 }
 
+function fruitCountsOK(w){
+  if (!w || !w.trees) return false;
+
+  const c = { peach:0, apple:0, orange:0, dragonfruit:0 };
+  let sandCoconut = 0;
+
+  for (const t of w.trees){
+    if (t.coconut) sandCoconut++;
+
+    if (!t.coconut && t.fruit === 'peach') c.peach++;
+    if (!t.coconut && t.fruit === 'apple') c.apple++;
+    if (!t.coconut && t.fruit === 'orange') c.orange++;
+    if (!t.coconut && t.fruit === 'dragonfruit') c.dragonfruit++;
+  }
+
+  return (
+    sandCoconut === 4 &&
+    c.peach === 4 &&
+    c.apple === 4 &&
+    c.orange === 4 &&
+    c.dragonfruit === 4
+  );
+}
 function initWorld(){
-  if (state.world && state.world.trees && state.world.trees.length >= 12) return;
+  if (state.world && state.world.trees && state.world.trees.length >= 20) {
+    if (fruitCountsOK(state.world)) return;
+    state.world = null;
+  }
 
   const rnd = mulberry32(20260212);
 
@@ -1011,67 +1058,94 @@ function initWorld(){
   const rocks = [];
 
   const TREE_COUNT = 44;
-  const SAND_TREE_COUNT = 4;      // ★砂地の木は4本
+  const SAND_TREE_COUNT = 4;
   const LAND_TREE_COUNT = TREE_COUNT - SAND_TREE_COUNT;
-
   const ROCK_COUNT = 12;
 
-  // Dragonfruit trees（陸地でOK。砂にしたくないなら同じく onSand を避ける）
-  
-  // Dragonfruit trees（砂浜に置かない）
-  const dfTrees = [];
-  const DF_TREE_COUNT = 4;
-  for (let i=0; i<DF_TREE_COUNT; i++){
-    const p = randomNonSandLandPoint(2.6, rnd); // 砂浜禁止
-    dfTrees.push({
-      id:`df${i}`,
-      x:p.x, z:p.z,
-      fruit:'dragonfruit',
-      shaken:false,
-      hadWasp:false,
-      coconut:false
-    });
+  // ★最小距離（ここを調整）
+  const TREE_MIN_DIST = 2.6;   // 木同士
+  const ROCK_MIN_DIST = 2.0;   // 岩同士（任意）
+  const ROCK_TREE_MIN_DIST = 2.2; // 岩と木（任意）
+
+  // ---- land trees（砂浜禁止、間隔あり）----
+  const landPts = placeSpacedPoints(
+    LAND_TREE_COUNT,
+    ()=> randomNonSandLandPoint(2.6, rnd),
+    TREE_MIN_DIST
+  );
+
+  for (let i=0;i<landPts.length;i++){
+    const p = landPts[i];
+    trees.push({ id:`t${i}`, x:p.x, z:p.z, fruit:null, coconut:false, shaken:false, hadWasp:false });
   }
 
-  // 1) 陸地の木（砂は避ける）
-  for (let i=0;i<LAND_TREE_COUNT;i++) {
-    const p = randomNonSandLandPoint(2.6, rnd);  // ★ここ
-    trees.push({ id: `t${i}`, x:p.x, z:p.z, fruit:null, coconut:false, shaken:false, hadWasp:false });
+  // ---- sand trees（砂浜4本、間隔あり）----
+  const sandPts = placeSpacedPoints(
+    SAND_TREE_COUNT,
+    ()=> randomSandPoint(2.6, rnd),
+    TREE_MIN_DIST
+  );
+
+  for (let i=0;i<sandPts.length;i++){
+    const p = sandPts[i];
+    trees.push({ id:`s${i}`, x:p.x, z:p.z, fruit:null, coconut:true, shaken:false, hadWasp:false });
   }
 
-  // 2) 砂地の木4本（ココナッツ確定）
-  for (let i=0;i<SAND_TREE_COUNT;i++){
-    const p = randomSandPoint(2.6, rnd);
-    trees.push({
-      id: `s${i}`,               // 砂の木ID
-      x: p.x, z: p.z,
-      fruit: null,
-      coconut: true,             // ★確定ココナッツ
-      shaken:false,
-      hadWasp:false
-    });
-  }
+  // ---- rocks（任意：木や岩と重ならないように）----
+  const rockPts = [];
+  const allTreePts = trees.map(t=>({x:t.x, z:t.z}));
 
-  // Rocks
-  for (let i=0;i<ROCK_COUNT;i++) {
+  let rTry = 0;
+  while (rockPts.length < ROCK_COUNT && rTry < 30000){
+    rTry++;
     const p = randomLandPoint(2.6, rnd);
+
+    // 岩同士
+    let ok = true;
+    for (const q of rockPts){
+      if (dist2(p.x,p.z,q.x,q.z) < ROCK_MIN_DIST*ROCK_MIN_DIST){ ok=false; break; }
+    }
+    if (!ok) continue;
+
+    // 岩と木
+    for (const t of allTreePts){
+      if (dist2(p.x,p.z,t.x,t.z) < ROCK_TREE_MIN_DIST*ROCK_TREE_MIN_DIST){ ok=false; break; }
+    }
+    if (!ok) continue;
+
+    rockPts.push(p);
+  }
+
+  for (let i=0;i<rockPts.length;i++){
+    const p = rockPts[i];
     rocks.push({ id:`r${i}`, x:p.x, z:p.z });
   }
 
-  // Assign fruits: peach x4, apple x4, orange x4
-  // ★砂地の木（coconut=true）には果物を割り当てないようにする
-  const fruitCandidates = trees.map((t,idx)=>({t,idx})).filter(o=>!o.t.coconut); // ★
-  const idx = shuffle(fruitCandidates.map(o=>o.idx), rnd);
+  // ---- fruit assignment（非砂浜の木から 4種×4 = 16本に確定割当）----
+  const fruitCandidates = trees
+    .map((t, idx)=>({t, idx}))
+    .filter(o=>!o.t.coconut);
 
-  const give = (kind, n, start)=>{ for(let k=0;k<n;k++) trees[idx[start+k]].fruit = kind; };
-  give('peach', 4, 0);
-  give('apple', 4, 4);
-  give('orange',4, 8);
+  const shuffledIdx = shuffle(fruitCandidates.map(o=>o.idx), rnd);
 
+  if (shuffledIdx.length < 16) {
+    console.error('Fruit candidates < 16:', shuffledIdx.length, fruitCandidates);
+  }
 
+  const kinds = ['peach', 'apple', 'orange', 'dragonfruit'];
+  let cursor = 0;
+  for (const kind of kinds){
+    for (let k=0;k<4;k++){
+      const ti = shuffledIdx[cursor++];
+      if (ti == null) break;
+      trees[ti].fruit = kind;
+    }
+  }
 
-  state.world = { trees, rocks, dfTrees };
+  state.world = { trees, rocks };
   flushSave();
+
+  console.log('World fruit counts OK?', fruitCountsOK(state.world));
 }
 
 // Build meshes from world
@@ -1144,26 +1218,7 @@ function buildOutdoor(){
       cooldown: 0,
     });
   }
-  // Dragonfruit Trees (4)
-for (const t of (state.world.dfTrees || [])) {
-  const mesh = makeSnowyTreeMesh();
-  mesh.position.set(t.x, 0, t.z);
-  outdoorGroup.add(mesh);
-  t.obj = mesh;
-
-  interactables.push({
-    type:'tree',
-    id: t.id,
-    data: t,
-    obj: mesh,
-    x: t.x,
-    z: t.z,
-    r: 1.08,
-    sway: 0,
-    cooldown: 0,
-  });
-}
-
+  
   // Rocks (still there visually)
   for (const r of state.world.rocks) {
     const mesh = makeRockMesh();
