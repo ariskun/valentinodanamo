@@ -1018,16 +1018,19 @@ function initWorld(){
 
   // Dragonfruit trees（陸地でOK。砂にしたくないなら同じく onSand を避ける）
   
+  // Dragonfruit trees（砂浜に置かない）
   const dfTrees = [];
   const DF_TREE_COUNT = 4;
-  for (let i=0;i<DF_TREE_COUNT;i++){
-    const p = randomNonSandLandPoint(2.6, rnd);  // ★ここ
-  dfTrees.push({ id:`df${i}`, x:p.x, z:p.z, fruit:'dragonfruit', shaken:false, hadWasp:false, coconut:false });
-}
-    // 砂を避けたいならこれ
-    for (let k=0;k<80 && onSand(p.x,p.z); k++) p = randomLandPoint(2.6, rnd);
-
-    dfTrees.push({ id:`df${i}`, x:p.x, z:p.z, fruit:'dragonfruit', shaken:false, hadWasp:false, coconut:false });
+  for (let i=0; i<DF_TREE_COUNT; i++){
+    const p = randomNonSandLandPoint(2.6, rnd); // 砂浜禁止
+    dfTrees.push({
+      id:`df${i}`,
+      x:p.x, z:p.z,
+      fruit:'dragonfruit',
+      shaken:false,
+      hadWasp:false,
+      coconut:false
+    });
   }
 
   // 1) 陸地の木（砂は避ける）
