@@ -379,7 +379,18 @@ function randomLandPoint(margin=2.0, rnd=Math.random){
   }
   return {x:0,z:0};
 }
-
+function randomNonSandLandPoint(margin=2.0, rnd=Math.random){
+  for (let i=0;i<260;i++) {
+    const x = (-island.rx + margin) + rnd() * ((island.rx - margin) - (-island.rx + margin));
+    const z = (-island.rz + margin) + rnd() * ((island.rz - margin) - (-island.rz + margin));
+    if (!onLand(x,z)) continue;
+    if (onSand(x,z)) continue;              // ★砂浜禁止
+    if (insideAnyPond(x,z)) continue;
+    if (Math.abs(x) < 4.5 && Math.abs(z) < 7.0) continue;
+    return {x,z};
+  }
+  return {x:0,z:0};
+}
 // Tree mesh
 function makeSnowyTreeMesh(){
   const group = new THREE.Group();
@@ -1006,10 +1017,13 @@ function initWorld(){
   const ROCK_COUNT = 12;
 
   // Dragonfruit trees（陸地でOK。砂にしたくないなら同じく onSand を避ける）
+  
   const dfTrees = [];
   const DF_TREE_COUNT = 4;
   for (let i=0;i<DF_TREE_COUNT;i++){
-    let p = randomLandPoint(2.6, rnd);
+    const p = randomNonSandLandPoint(2.6, rnd);  // ★ここ
+  dfTrees.push({ id:`df${i}`, x:p.x, z:p.z, fruit:'dragonfruit', shaken:false, hadWasp:false, coconut:false });
+}
     // 砂を避けたいならこれ
     for (let k=0;k<80 && onSand(p.x,p.z); k++) p = randomLandPoint(2.6, rnd);
 
@@ -1018,10 +1032,9 @@ function initWorld(){
 
   // 1) 陸地の木（砂は避ける）
   for (let i=0;i<LAND_TREE_COUNT;i++) {
-    let p = randomLandPoint(2.6, rnd);
-    for (let k=0;k<80 && onSand(p.x,p.z); k++) p = randomLandPoint(2.6, rnd); // ★砂を避ける
+    const p = randomNonSandLandPoint(2.6, rnd);  // ★ここ
     trees.push({ id: `t${i}`, x:p.x, z:p.z, fruit:null, coconut:false, shaken:false, hadWasp:false });
-  }
+}
 
   // 2) 砂地の木4本（ココナッツ確定）
   for (let i=0;i<SAND_TREE_COUNT;i++){
@@ -1052,12 +1065,7 @@ function initWorld(){
   give('apple', 4, 4);
   give('orange',4, 8);
 
-  // それ以外の「果物なし陸地の木」は 5% ココナッツ（※砂地の木は既に確定）
-  for (const t of trees) {
-    if (t.fruit) continue;
-    if (t.coconut) continue;     // ★砂地ココナッツはそのまま
-    if (rnd() < 0.05) t.coconut = true;
-  }
+
 
   state.world = { trees, rocks, dfTrees };
   flushSave();
