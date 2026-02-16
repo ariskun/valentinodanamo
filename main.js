@@ -43,7 +43,28 @@ function resetGame(){
   try{ localStorage.removeItem("cozy_island_3d_save_v4"); }catch{}
   location.reload();
 }
+// ---- BGM ----
+const bgmEl = document.getElementById('bgm');
+let bgmStarted = false;
 
+async function startBGM(){
+  if (!bgmEl || bgmStarted) return;
+  try{
+    bgmEl.volume = 0.55;     // 好みで
+    await bgmEl.play();      // iOSはユーザー操作の中で呼ぶ必要あり
+    bgmStarted = true;
+  }catch(err){
+    // iOSで失敗する時は、次のユーザー操作で再挑戦できるようにしておく
+    console.warn('BGM play blocked:', err);
+  }
+}
+
+// 音量ON/OFFしたいなら（任意）
+function toggleBGM(){
+  if (!bgmEl) return;
+  bgmEl.muted = !bgmEl.muted;
+  toast(bgmEl.muted ? '🔇 BGM OFF' : '🔊 BGM ON', 1.0);
+}
 // UI
 const toastEl = document.getElementById('toast');
 const invEl = document.getElementById('inv');
@@ -335,7 +356,18 @@ const state = {
   quest: { step: 0 },
 };
 
-
+function randomSandPoint(margin=2.0, rnd=Math.random){
+  for (let i=0;i<260;i++) {
+    const x = (-island.rx + margin) + rnd() * ((island.rx - margin) - (-island.rx + margin));
+    const z = (-island.rz + margin) + rnd() * ((island.rz - margin) - (-island.rz + margin));
+    if (!onLand(x,z)) continue;
+    if (!onSand(x,z)) continue;              // ★砂だけ
+    if (insideAnyPond(x,z)) continue;
+    if (Math.abs(x) < 4.5 && Math.abs(z) < 7.0) continue;
+    return {x,z};
+  }
+  return {x:0,z:0};
+}
 function randomLandPoint(margin=2.0, rnd=Math.random){
   for (let i=0;i<220;i++) {
     const x = (-island.rx + margin) + rnd() * ((island.rx - margin) - (-island.rx + margin));
@@ -818,24 +850,73 @@ function makeBee(){
   g.userData = { w1, w2 };
   return g;
 }
+function makeWatcher(){
+  const g = new THREE.Group();
+  g.add(shadowBlob(0.85, 0.18));
 
+  const mat = new THREE.MeshStandardMaterial({ color: 0x0b0b0d, roughness: 0.65 });
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.70, 6, 12), mat);
+  body.position.y = 0.85;
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 18, 14), mat);
+  head.position.y = 1.55;
+
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, emissive: 0xffffff, emissiveIntensity: 0.9 });
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), eyeMat);
+  const eyeR = eyeL.clone();
+  eyeL.position.set(-0.12, 1.58, 0.26);
+  eyeR.position.set( 0.12, 1.58, 0.26);
+
+  g.add(body, head, eyeL, eyeR);
+  g.userData = { kind: 'watcher', t: 0 };
+  return g;
+}
+function makeBaboonMan(){
+  const g = new THREE.Group();
+  g.add(shadowBlob(0.90, 0.18));
+
+  const mat = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.85 });
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 0.74, 6, 12), mat);
+  body.position.y = 0.88;
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 14), mat);
+  head.position.y = 1.58;
+
+  const muzzleMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1f, roughness: 0.9 });
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.20, 14, 12), muzzleMat);
+  muzzle.scale.set(1.0, 0.75, 0.9);
+  muzzle.position.set(0, 1.52, 0.30);
+
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0f0f0f, roughness: 0.4 });
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), eyeMat);
+  const eyeR = eyeL.clone();
+  eyeL.position.set(-0.12, 1.62, 0.24);
+  eyeR.position.set( 0.12, 1.62, 0.24);
+
+  g.add(body, head, muzzle, eyeL, eyeR);
+  g.userData = { kind: 'baboon', t: 0 };
+  return g;
+}
 function startWaspChase(treeId, x, z){
   if (state.wasp.active) return;
-  const bee = makeBee();
-  bee.position.set(x, 0, z);
-  outdoorGroup.add(bee);
+
+  // 90%: 覗くもの / 10%: サルマントヒヒ
+  const isBaboon = (Math.random() < 0.10);
+  const chaser = isBaboon ? makeBaboonMan() : makeWatcher();
+
+  chaser.position.set(x, 0, z);
+  outdoorGroup.add(chaser);
 
   state.wasp.active = true;
-  state.wasp.obj = bee;
+  state.wasp.obj = chaser;
   state.wasp.treeId = treeId;
   state.wasp.t = 0;
 
-  // 1s delay before it actually starts chasing
   state.wasp.delay = 2.0;
   state.wasp.originX = x;
   state.wasp.originZ = z;
 
-  toast('🐝', 2.4);
+  toast(isBaboon ? '🙈 自分の甘えサルマントヒヒ' : '👁️‍🗨️ 自分の恐怖あなたを覗くもの', 2.5);
 }
 
 function stopWaspChase(){
@@ -853,45 +934,51 @@ function updateWasp(dt){
   if (!state.wasp.active || !state.wasp.obj) return;
   state.wasp.t += dt;
 
-  const bee = state.wasp.obj;
+  const ch = state.wasp.obj;
+  const kind = ch.userData?.kind || 'watcher';
 
-  // buzz wings always
-  const u = bee.userData;
-  if (u && u.w1 && u.w2) {
-    const f = Math.sin(state.wasp.t * 32.0);
-    u.w1.rotation.z = 0.5 + f*0.6;
-    u.w2.rotation.z = -0.5 - f*0.6;
-  }
-
-  // 1s wait before chase begins
+  // 待機（出現演出）
   if (state.wasp.delay > 0) {
     state.wasp.delay -= dt;
-    bee.position.x = state.wasp.originX;
-    bee.position.z = state.wasp.originZ;
-    bee.position.y = 0.35 + Math.sin(state.wasp.t*9.0)*0.10;
-    bee.rotation.y += dt * 2.0;
+    ch.position.x = state.wasp.originX;
+    ch.position.z = state.wasp.originZ;
+
+    // ふわっと浮く
+    const bob = (kind === 'baboon') ? 0.06 : 0.10;
+    ch.position.y = 0.02 + Math.sin(state.wasp.t*6.0) * bob;
+
+    // じっと見てる回転
+    ch.rotation.y += dt * (kind === 'baboon' ? 1.2 : 0.8);
     return;
   }
 
   const px = player.position.x;
   const pz = player.position.z;
-  
-  // move toward player
-  const dx = px - bee.position.x;
-  const dz = pz - bee.position.z;
+
+  const dx = px - ch.position.x;
+  const dz = pz - ch.position.z;
   const d = Math.hypot(dx, dz);
   const nx = d>1e-6 ? dx/d : 0;
   const nz = d>1e-6 ? dz/d : 0;
 
+  // 速度：今の「プレイヤーと同じ」を踏襲（好みで微調整してOK）
   const sp = state.wasp.speed;
-  bee.position.x += nx * sp * dt;
-  bee.position.z += nz * sp * dt;
-  bee.position.y = 0.35 + Math.sin(state.wasp.t*9.0)*0.08;
-  bee.rotation.y = Math.atan2(nx, nz);
+  ch.position.x += nx * sp * dt;
+  ch.position.z += nz * sp * dt;
 
-  // sting
-  if (d < 0.75) {
-    triggerGameOver('😵 刺された！\nTry next time');
+  // 地面すれすれ＋不気味な揺れ
+  const bob = (kind === 'baboon') ? 0.03 : 0.07;
+  ch.position.y = 0.02 + Math.sin(state.wasp.t*7.5) * bob;
+
+  // プレイヤーに向く
+  ch.rotation.y = Math.atan2(nx, nz);
+
+  // 接触＝ゲームオーバー
+  if (d < 0.85) {
+    triggerGameOver(kind === 'baboon'
+      ? '本命チョコを命の代わりにもらった\nやり直し'
+      : 'ギリチョコを貰ってしまった\n意外すぎてやり直し'
+    );
   }
 }
 
@@ -907,43 +994,72 @@ function shuffle(arr, rnd=Math.random){
 function initWorld(){
   if (state.world && state.world.trees && state.world.trees.length >= 12) return;
 
-  // Fixed layout every new game: deterministic seed
   const rnd = mulberry32(20260212);
 
   const trees = [];
   const rocks = [];
 
   const TREE_COUNT = 44;
+  const SAND_TREE_COUNT = 4;      // ★砂地の木は4本
+  const LAND_TREE_COUNT = TREE_COUNT - SAND_TREE_COUNT;
+
   const ROCK_COUNT = 12;
+
+  // Dragonfruit trees（陸地でOK。砂にしたくないなら同じく onSand を避ける）
   const dfTrees = [];
   const DF_TREE_COUNT = 4;
   for (let i=0;i<DF_TREE_COUNT;i++){
-    const p = randomLandPoint(2.6, rnd);
+    let p = randomLandPoint(2.6, rnd);
+    // 砂を避けたいならこれ
+    for (let k=0;k<80 && onSand(p.x,p.z); k++) p = randomLandPoint(2.6, rnd);
+
     dfTrees.push({ id:`df${i}`, x:p.x, z:p.z, fruit:'dragonfruit', shaken:false, hadWasp:false, coconut:false });
   }
-  for (let i=0;i<TREE_COUNT;i++) {
-    const p = randomLandPoint(2.6, rnd);
+
+  // 1) 陸地の木（砂は避ける）
+  for (let i=0;i<LAND_TREE_COUNT;i++) {
+    let p = randomLandPoint(2.6, rnd);
+    for (let k=0;k<80 && onSand(p.x,p.z); k++) p = randomLandPoint(2.6, rnd); // ★砂を避ける
     trees.push({ id: `t${i}`, x:p.x, z:p.z, fruit:null, coconut:false, shaken:false, hadWasp:false });
   }
+
+  // 2) 砂地の木4本（ココナッツ確定）
+  for (let i=0;i<SAND_TREE_COUNT;i++){
+    const p = randomSandPoint(2.6, rnd);
+    trees.push({
+      id: `s${i}`,               // 砂の木ID
+      x: p.x, z: p.z,
+      fruit: null,
+      coconut: true,             // ★確定ココナッツ
+      shaken:false,
+      hadWasp:false
+    });
+  }
+
+  // Rocks
   for (let i=0;i<ROCK_COUNT;i++) {
     const p = randomLandPoint(2.6, rnd);
     rocks.push({ id:`r${i}`, x:p.x, z:p.z });
   }
 
   // Assign fruits: peach x4, apple x4, orange x4
-  const idx = shuffle([...Array(trees.length).keys()], rnd);
+  // ★砂地の木（coconut=true）には果物を割り当てないようにする
+  const fruitCandidates = trees.map((t,idx)=>({t,idx})).filter(o=>!o.t.coconut); // ★
+  const idx = shuffle(fruitCandidates.map(o=>o.idx), rnd);
+
   const give = (kind, n, start)=>{ for(let k=0;k<n;k++) trees[idx[start+k]].fruit = kind; };
   give('peach', 4, 0);
   give('apple', 4, 4);
   give('orange',4, 8);
 
-  // Among fruitless trees: 5% coconuts (instant KO on shake)
+  // それ以外の「果物なし陸地の木」は 5% ココナッツ（※砂地の木は既に確定）
   for (const t of trees) {
     if (t.fruit) continue;
+    if (t.coconut) continue;     // ★砂地ココナッツはそのまま
     if (rnd() < 0.05) t.coconut = true;
   }
 
-  state.world = { trees, rocks , dfTrees};
+  state.world = { trees, rocks, dfTrees };
   flushSave();
 }
 
@@ -1148,6 +1264,7 @@ function npcTalk(npc){
 
 // Action logic
 function doAction(){
+  if (GAMEOVER_LOCK) return;
   if (state.stage === 'indoor') {
     // exit door
     if (!state.started) return;
@@ -1317,6 +1434,7 @@ function resetJoy(){ joy.active=false; joy.pid=null; joy.dx=0; joy.dy=0; setKnob
 resetJoy();
 
 function joyDown(e){
+  if (GAMEOVER_LOCK) return;
   const p = e.changedTouches ? e.changedTouches[0] : e;
   const rect = joyEl.getBoundingClientRect();
   const x = p.clientX, y = p.clientY;
@@ -1610,11 +1728,11 @@ function loop(){
 setStarted(false);
 loop();
 
-startBtnEl?.addEventListener('click', () => {
-  // 開始時は家の前に必ず置く（後述のスポーン固定と二重で安全）
+startBtnEl?.addEventListener('click', async () => {
   player.position.set(0, 0, 3.6);
   player.rotation.y = Math.PI;
 
+  await startBGM();   // ★ Startボタン操作の中で鳴らす
   setStarted(true);
 });
 
