@@ -1037,7 +1037,7 @@ function initWorld(){
   for (let i=0;i<LAND_TREE_COUNT;i++) {
     const p = randomNonSandLandPoint(2.6, rnd);  // ★ここ
     trees.push({ id: `t${i}`, x:p.x, z:p.z, fruit:null, coconut:false, shaken:false, hadWasp:false });
-}
+  }
 
   // 2) 砂地の木4本（ココナッツ確定）
   for (let i=0;i<SAND_TREE_COUNT;i++){
