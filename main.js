@@ -1040,10 +1040,10 @@ function fruitCountsOK(w){
 
   return (
     sandCoconut === 4 &&
-    c.peach === 4 &&
-    c.apple === 4 &&
-    c.orange === 4 &&
-    c.dragonfruit === 4
+    c.peach === 3 &&
+    c.apple === 3 &&
+    c.orange === 3 &&
+    c.dragonfruit === 3
   );
 }
 function initWorld(){
@@ -1121,15 +1121,15 @@ function initWorld(){
     rocks.push({ id:`r${i}`, x:p.x, z:p.z });
   }
 
-  // ---- fruit assignment（非砂浜の木から 4種×4 = 16本に確定割当）----
+  // ---- fruit assignment（非砂浜の木から 4種×3 = 12本に確定割当）----
   const fruitCandidates = trees
     .map((t, idx)=>({t, idx}))
     .filter(o=>!o.t.coconut);
 
   const shuffledIdx = shuffle(fruitCandidates.map(o=>o.idx), rnd);
 
-  if (shuffledIdx.length < 16) {
-    console.error('Fruit candidates < 16:', shuffledIdx.length, fruitCandidates);
+  if (shuffledIdx.length < 12) {
+    console.error('Fruit candidates < 12:', shuffledIdx.length, fruitCandidates);
   }
 
   const kinds = ['peach', 'apple', 'orange', 'dragonfruit'];
