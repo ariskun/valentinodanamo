@@ -1135,7 +1135,7 @@ function initWorld(){
   const kinds = ['peach', 'apple', 'orange', 'dragonfruit'];
   let cursor = 0;
   for (const kind of kinds){
-    for (let k=0;k<4;k++){
+    for (let k=0;k<3;k++){
       const ti = shuffledIdx[cursor++];
       if (ti == null) break;
       trees[ti].fruit = kind;
